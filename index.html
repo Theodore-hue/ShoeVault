@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShoeVault — 把鞋柜管成一份档案</title>
+<meta name="description" content="ShoeVault 是一个完全离线的鞋柜档案程序：收录鞋款、管理鞋柜、看数据、打印鞋盒标签。数据只存在你自己的电脑里。">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<script>document.documentElement.classList.add('js');</script>
+<style>
+  :root{
+    --ink:#0a0a0a;
+    --ink-2:#0d0d0d;
+    --vault:#111110;
+    --hairline:#232322;
+    --hairline-soft:#1a1a19;
+    --gold:#d4af37;
+    --gold-bright:#f0cf6b;
+    --gold-dim:#8a7328;
+    --paper:#e9e5da;
+    --text:#c6c3bb;
+    --text-hi:#f4f2ec;
+    --muted:#807d75;
+    --sans:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Noto Sans CJK SC",sans-serif;
+    --serif:Cambria,"Georgia","Times New Roman",serif;
+    --ease:cubic-bezier(.22,.68,.28,1);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.78;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  img{display:block;max-width:100%;height:auto;}
+  a{color:inherit;}
+
+  ::selection{background:var(--gold);color:#0a0a0a;}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:4px;}
+
+  /* ============ 全局氛围层 ============ */
+  .progress{
+    position:fixed;left:0;top:0;height:2px;width:100%;
+    background:linear-gradient(90deg,var(--gold-dim),var(--gold),var(--gold-bright));
+    transform:scaleX(0);transform-origin:0 50%;
+    z-index:60;pointer-events:none;
+  }
+  .glow{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(560px circle at var(--mx,50%) var(--my,20%),rgba(212,175,55,.075),transparent 62%);
+    opacity:0;transition:opacity .9s ease;
+  }
+  .glow.on{opacity:1;}
+  main,header,footer{position:relative;z-index:1;}
+
+  .wrap{
+    width:100%;max-width:1140px;margin:0 auto;padding:0 34px;
+  }
+
+  /* ============ 顶栏 ============ */
+  .top{
+    position:sticky;top:0;z-index:50;
+    border-bottom:1px solid transparent;
+    transition:background .45s var(--ease),border-color .45s var(--ease),backdrop-filter .45s;
+  }
+  .top.stuck{
+    background:rgba(10,10,10,.78);
+    -webkit-backdrop-filter:blur(14px) saturate(120%);
+    backdrop-filter:blur(14px) saturate(120%);
+    border-bottom-color:var(--hairline);
+  }
+  .top .wrap{
+    display:flex;align-items:baseline;justify-content:space-between;gap:24px;
+    padding-top:24px;padding-bottom:22px;
+    transition:padding .45s var(--ease);
+  }
+  .top.stuck .wrap{padding-top:16px;padding-bottom:15px;}
+  .brand{display:flex;align-items:baseline;gap:14px;text-decoration:none;}
+  .brand-mark{
+    width:27px;height:27px;border:1px solid var(--gold);
+    display:grid;place-items:center;transform:translateY(3px);
+    transition:box-shadow .5s var(--ease),border-color .5s var(--ease);
+  }
+  .brand:hover .brand-mark{box-shadow:0 0 22px rgba(212,175,55,.35);border-color:var(--gold-bright);}
+  .brand-mark span{font-family:var(--serif);font-size:15px;color:var(--gold);line-height:1;}
+  .brand-name{
+    font-family:var(--serif);font-size:19px;letter-spacing:.14em;color:var(--text-hi);
+  }
+  .top-meta{display:flex;gap:20px;font-size:12.5px;color:var(--muted);letter-spacing:.02em;}
+  .top-meta b{font-weight:400;color:var(--text);font-family:var(--serif);letter-spacing:.06em;}
+
+  /* ============ Hero ============ */
+  .hero{padding:96px 0 0;position:relative;}
+  .hero-grid{
+    display:grid;
+    grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);
+    gap:54px;align-items:center;
+  }
+  .hero h1{
+    font-size:clamp(34px,5.4vw,62px);
+    line-height:1.1;
+    font-weight:700;
+    color:var(--text-hi);
+    margin:0 0 28px;
+    letter-spacing:-.005em;
+  }
+  .line{display:block;overflow:hidden;padding-bottom:.06em;}
+  .line > span{display:block;will-change:transform;}
+  .hero h1 em{
+    font-style:normal;
+    position:relative;
+    color:var(--gold);
+    display:inline-block;
+  }
+  .hero h1 em::after{
+    content:"";position:absolute;left:0;right:0;bottom:.02em;height:2px;
+    background:linear-gradient(90deg,var(--gold),rgba(212,175,55,0));
+    transform:scaleX(0);transform-origin:0 50%;
+    transition:transform 1.1s var(--ease) .75s;
+  }
+  .titled .hero h1 em::after{transform:scaleX(1);}
+
+  .hero p.lede{
+    font-size:16.5px;line-height:1.92;color:var(--text);
+    margin:0 0 36px;max-width:31em;
+  }
+  .actions{display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
+
+  .btn{
+    position:relative;display:inline-flex;align-items:center;gap:10px;
+    padding:14px 28px;background:var(--gold);color:#0a0a0a;
+    font-size:15px;font-weight:700;text-decoration:none;
+    border:1px solid var(--gold);letter-spacing:.02em;
+    overflow:hidden;isolation:isolate;
+    transition:transform .35s var(--ease),box-shadow .45s var(--ease),background .35s;
+  }
+  .btn::after{
+    content:"";position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.65) 48%,transparent 62%);
+    transform:translateX(-120%);
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(212,175,55,.22);background:var(--gold-bright);}
+  .btn:hover::after{animation:sheen .85s var(--ease) forwards;}
+  @keyframes sheen{to{transform:translateX(120%);}}
+
+  .btn-quiet{
+    background:none;color:var(--text);border:1px solid var(--hairline);
+    font-weight:400;
+  }
+  .btn-quiet:hover{
+    background:none;border-color:var(--gold-dim);color:var(--text-hi);
+    box-shadow:none;
+  }
+  .btn-quiet::after{display:none;}
+  .btn-quiet span.arw{transition:transform .35s var(--ease);color:var(--gold);}
+  .btn-quiet:hover span.arw{transform:translateX(4px);}
+
+  /* 主视觉 */
+  .plinth{position:relative;margin:0;perspective:1200px;}
+  .plinth .frame{
+    position:relative;padding:1px;
+    background:linear-gradient(150deg,rgba(212,175,55,.6),rgba(212,175,55,.05) 42%,rgba(35,35,34,1));
+    transition:transform .6s var(--ease),box-shadow .6s var(--ease);
+    transform-style:preserve-3d;
+  }
+  .plinth:hover .frame{box-shadow:0 30px 70px -30px rgba(212,175,55,.28);}
+  .plinth .inner{background:var(--ink-2);padding:10px;}
+  .plinth img{width:100%;border:1px solid #1b1b1a;}
+  .plinth figcaption{
+    margin:15px 0 0;font-size:12.5px;color:var(--muted);
+    display:flex;justify-content:space-between;gap:16px;
+  }
+  .plinth figcaption span:first-child{font-family:var(--serif);letter-spacing:.08em;color:var(--gold-dim);}
+
+  /* ============ 数字条 ============ */
+  .stats{
+    margin-top:74px;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);
+  }
+  .stats .wrap{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    padding-top:30px;padding-bottom:30px;
+  }
+  .stat{display:flex;align-items:baseline;gap:14px;}
+  .stat + .stat{border-left:1px solid var(--hairline-soft);padding-left:34px;}
+  .stat b{
+    font-family:var(--serif);font-size:44px;line-height:1;
+    color:var(--gold);font-weight:400;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat span{font-size:13.5px;color:var(--muted);letter-spacing:.02em;}
+
+  /* ============ 分节 ============ */
+  .sec{border-top:1px solid var(--hairline);padding:86px 0;}
+  .sec-head{max-width:42em;margin-bottom:48px;}
+  .sec-head h2{
+    font-size:clamp(24px,2.8vw,34px);line-height:1.34;
+    color:var(--text-hi);font-weight:700;margin:0 0 16px;letter-spacing:-.005em;
+  }
+  .sec-head p{margin:0;color:var(--muted);font-size:15px;}
+  .rule{
+    height:1px;width:64px;margin:0 0 26px;
+    background:linear-gradient(90deg,var(--gold),rgba(212,175,55,0));
+    transform:scaleX(0);transform-origin:0 50%;
+    transition:transform 1s var(--ease);
+  }
+  .in .rule{transform:scaleX(1);}
+
+  /* ============ 标本签 ============ */
+  .specimen{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:62px;align-items:center;}
+  .tag-wrap{perspective:1000px;}
+  .tagcard{
+    background:var(--paper);color:#191919;
+    padding:30px 32px 26px;position:relative;
+    outline:1px solid var(--gold);outline-offset:7px;
+    box-shadow:0 34px 80px -28px rgba(0,0,0,.85),0 0 0 1px rgba(0,0,0,.5);
+    transform:rotate(-1.6deg) translateY(14px);
+    opacity:0;
+    transition:transform 1.15s var(--ease),opacity 1.15s var(--ease),box-shadow .6s;
+  }
+  .in .tagcard{transform:rotate(-.5deg) translateY(0);opacity:1;}
+  .tagcard:hover{transform:rotate(0) translateY(-4px);box-shadow:0 44px 90px -30px rgba(0,0,0,.9),0 0 46px -12px rgba(212,175,55,.35);}
+  .tagcard::before{
+    content:"";position:absolute;left:0;top:18px;bottom:18px;width:6px;
+    background:repeating-linear-gradient(180deg,transparent 0 9px,#c9c4b5 9px 20px);
+    opacity:.6;
+  }
+  .tag-top{
+    display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1px solid #b9b3a2;padding-bottom:11px;margin-bottom:15px;
+  }
+  .tag-top b{font-family:var(--serif);font-size:12px;letter-spacing:.2em;font-weight:400;color:#3a3a3a;}
+  .tag-top b::after{
+    content:"";display:inline-block;width:5px;height:5px;margin-left:10px;
+    background:var(--gold);transform:rotate(45deg) translateY(-1px);
+  }
+  .tag-top i{font-family:var(--serif);font-style:normal;font-size:13px;color:#5c5c5c;letter-spacing:.08em;}
+  .tag-name{font-size:23px;letter-spacing:-.005em;font-weight:700;color:#141414;margin:0 0 3px;line-height:1.3;}
+  .tag-sub{font-size:12.5px;color:#5f5f5f;margin:0 0 18px;}
+  .tag-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 26px;margin:0;font-size:13.5px;}
+  .tag-fields div{
+    display:flex;justify-content:space-between;gap:10px;
+    border-bottom:1px dotted #b6b0a0;padding-bottom:4px;
+    opacity:0;transform:translateY(6px);
+    transition:opacity .55s var(--ease),transform .55s var(--ease);
+  }
+  .in .tag-fields div{opacity:1;transform:none;}
+  .in .tag-fields div:nth-child(1){transition-delay:.28s;}
+  .in .tag-fields div:nth-child(2){transition-delay:.34s;}
+  .in .tag-fields div:nth-child(3){transition-delay:.40s;}
+  .in .tag-fields div:nth-child(4){transition-delay:.46s;}
+  .in .tag-fields div:nth-child(5){transition-delay:.52s;}
+  .in .tag-fields div:nth-child(6){transition-delay:.58s;}
+  .tag-fields dt{color:#6a6a6a;margin:0;}
+  .tag-fields dd{margin:0;font-family:var(--serif);color:#141414;}
+  .tag-fields dd .sw{
+    display:inline-block;width:11px;height:11px;border:1px solid #8f8a7c;
+    vertical-align:middle;margin-left:3px;
+  }
+  .tag-foot{
+    margin-top:20px;padding-top:11px;border-top:1px solid #b9b3a2;
+    font-size:11.5px;color:#6a6a6a;
+    display:flex;justify-content:space-between;
+    font-family:var(--serif);letter-spacing:.05em;
+  }
+
+  .specimen-copy h2{
+    font-size:clamp(24px,2.8vw,33px);line-height:1.36;
+    color:var(--text-hi);margin:0 0 20px;font-weight:700;
+  }
+  .specimen-copy > p{margin:0 0 20px;color:var(--text);font-size:15.5px;line-height:1.88;}
+  .specimen-copy ul{margin:0;padding:0;list-style:none;font-size:14.5px;color:var(--muted);}
+  .specimen-copy li{
+    padding:11px 0;border-top:1px solid var(--hairline-soft);
+    display:flex;gap:12px;align-items:baseline;
+    transition:color .3s,border-color .3s;
+  }
+  .specimen-copy li:hover{color:var(--text);border-color:#2c2c2a;}
+  .specimen-copy li::before{
+    content:"";width:5px;height:5px;flex:none;
+    background:var(--gold-dim);transform:rotate(45deg) translateY(-1px);
+  }
+  .specimen-copy li b{color:var(--text);font-weight:400;}
+
+  .specimen-copy .specimen-note{
+    margin:22px 0 0;padding-top:18px;border-top:1px solid var(--hairline-soft);
+    font-size:13.5px;color:var(--muted);line-height:1.9;max-width:30em;letter-spacing:.01em;
+  }
+
+  /* ============ 功能行 ============ */
+  .row{
+    display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
+    gap:56px;align-items:center;padding:38px 0;
+  }
+  .row + .row{border-top:1px solid var(--hairline-soft);}
+  .row.flip .row-media{order:2;}
+  .row-media{position:relative;overflow:hidden;border:1px solid #1d1d1c;}
+  .row-media img{
+    width:100%;
+    transition:transform 1.1s var(--ease),filter .6s;
+    filter:saturate(.96);
+  }
+  .row-media::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    box-shadow:inset 0 0 0 1px rgba(212,175,55,0);transition:box-shadow .5s;
+  }
+  .row-media:hover img{transform:scale(1.028);filter:saturate(1.06);}
+  .row-media:hover::after{box-shadow:inset 0 0 0 1px rgba(212,175,55,.35);}
+  .row-text h3{font-size:20.5px;color:var(--text-hi);margin:0 0 13px;font-weight:700;line-height:1.5;}
+  .row-text p{margin:0 0 16px;color:var(--text);font-size:15px;line-height:1.88;}
+  .row-text p:last-child{margin-bottom:0;}
+  .kbd{
+    font-family:var(--serif);border:1px solid var(--hairline);
+    padding:1px 7px;font-size:13px;color:var(--gold);
+    background:rgba(212,175,55,.04);
+  }
+
+  /* ============ 所有权 ============ */
+  .ownership{
+    background:
+      radial-gradient(900px 300px at 15% 0%,rgba(212,175,55,.05),transparent 70%),
+      var(--vault);
+    border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);
+    padding:86px 0;
+  }
+  .ownership .lead{
+    font-size:clamp(22px,2.5vw,30px);line-height:1.55;color:var(--text-hi);
+    font-weight:700;max-width:25em;margin:0 0 38px;
+  }
+  .files{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:1px;background:var(--hairline);border:1px solid var(--hairline);
+  }
+  .files div{
+    background:var(--ink);padding:24px 24px 27px;
+    position:relative;overflow:hidden;
+  }
+  .files div::before{
+    content:"";position:absolute;left:0;top:0;height:2px;width:100%;
+    background:linear-gradient(90deg,var(--gold),transparent);
+    transform:scaleX(0);transform-origin:0 50%;
+    transition:transform .6s var(--ease);
+  }
+  .files div:hover::before{transform:scaleX(1);}
+  .files dt{
+    font-family:var(--serif);font-size:15.5px;color:var(--gold);
+    letter-spacing:.05em;margin:0 0 9px;
+    transition:text-shadow .4s;
+  }
+  .files div:hover dt{text-shadow:0 0 18px rgba(212,175,55,.55);}
+  .files dd{margin:0;font-size:13.5px;color:var(--muted);line-height:1.72;}
+  .own-note{margin:28px 0 0;font-size:14px;color:var(--muted);max-width:52em;}
+
+  /* ============ 细节 ============ */
+  .details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 60px;}
+  .details div{
+    padding:17px 0;border-top:1px solid var(--hairline-soft);
+    display:grid;grid-template-columns:8.6em minmax(0,1fr);gap:16px;font-size:14.5px;
+    transition:border-color .3s;
+  }
+  .details div:hover{border-color:#33332f;}
+  .details div:nth-child(1),.details div:nth-child(2){border-top:none;}
+  .details dt{color:var(--text-hi);margin:0;transition:color .3s;}
+  .details div:hover dt{color:var(--gold);}
+  .details dd{margin:0;color:var(--muted);}
+
+  /* ============ 页脚 ============ */
+  footer{
+    border-top:1px solid var(--hairline);
+    padding:48px 0 64px;
+    background:linear-gradient(180deg,transparent,rgba(212,175,55,.025));
+  }
+  footer .wrap{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;flex-wrap:wrap;}
+  .foot-line{font-family:var(--serif);font-size:13px;color:var(--muted);letter-spacing:.06em;line-height:2.1;}
+  .foot-line b{color:var(--text);font-weight:400;}
+  .foot-author{font-size:13.5px;color:var(--muted);line-height:2.1;text-align:right;}
+  .foot-author b{color:var(--gold);font-weight:400;font-family:var(--serif);letter-spacing:.1em;}
+
+  /* ============ 动效：入场 ============ */
+  @media (prefers-reduced-motion:no-preference){
+    .hero h1 .line > span{transform:translateY(115%);transition:transform 1s var(--ease);}
+    .titled .hero h1 .line:nth-child(2) > span{transition-delay:.1s;}
+
+    .hero p.lede,.actions{opacity:0;transform:translateY(16px);transition:opacity .9s var(--ease) .5s,transform .9s var(--ease) .5s;}
+    .hero .plinth{opacity:0;transform:translateY(34px) rotateX(7deg);transition:opacity 1.1s var(--ease) .22s,transform 1.1s var(--ease) .22s;}
+    .titled .hero h1 .line > span{transform:none;}
+    .titled .hero p.lede,.titled .actions{opacity:1;transform:none;}
+    .titled .hero .plinth{opacity:1;transform:none;}
+
+    .js .reveal{opacity:0;transform:translateY(22px);transition:opacity .85s var(--ease),transform .85s var(--ease);}
+    .js .reveal.in{opacity:1;transform:none;}
+    .js .reveal[data-d="1"]{transition-delay:.09s;}
+    .js .reveal[data-d="2"]{transition-delay:.18s;}
+    .js .reveal[data-d="3"]{transition-delay:.27s;}
+  }
+
+  /* ============ 响应式 ============ */
+  @media (max-width:920px){
+    .wrap{padding:0 22px;}
+    .hero{padding-top:58px;}
+    .hero-grid,.specimen,.row{grid-template-columns:minmax(0,1fr);gap:36px;}
+    .row.flip .row-media{order:0;}
+    .row{padding:30px 0;gap:26px;}
+    .stats{margin-top:52px;}
+    .stats .wrap{grid-template-columns:minmax(0,1fr);padding-top:22px;padding-bottom:22px;row-gap:18px;}
+    .stat + .stat{border-left:none;padding-left:0;border-top:1px solid var(--hairline-soft);padding-top:18px;}
+    .files{grid-template-columns:minmax(0,1fr);}
+    .details{grid-template-columns:minmax(0,1fr);gap:0;}
+    .details div:nth-child(2){border-top:1px solid var(--hairline-soft);}
+    .sec,.ownership{padding:60px 0;}
+    .sec-head{margin-bottom:34px;}
+    .top-meta{font-size:12px;gap:14px;}
+    .top-meta span:nth-child(3){display:none;}
+    .foot-author{text-align:left;}
+    .stat b{font-size:36px;}
+  }
+  @media (max-width:520px){
+    .tag-fields{grid-template-columns:minmax(0,1fr);gap:10px;}
+    .tagcard{padding:24px 22px 22px;}
+    .tag-name{font-size:18px;}
+    .details div{grid-template-columns:minmax(0,1fr);gap:3px;}
+    .brand-name{font-size:17px;letter-spacing:.1em;}
+    .actions{gap:12px;flex-direction:column;align-items:stretch;}
+    .actions .btn{width:100%;justify-content:center;}
+    .btn{padding:13px 20px;font-size:14.5px;}
+    .sec-head h2,.specimen-copy h2{font-size:23px;}
+    .hero h1{font-size:32px;}
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress" aria-hidden="true"></div>
+<div class="glow" id="glow" aria-hidden="true"></div>
+
+<header class="top" id="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <span class="brand-mark"><span>S</span></span>
+      <span class="brand-name">SHOEVAULT</span>
+    </a>
+    <div class="top-meta">
+      <span>版本 <b>v1.0</b></span>
+      <span>完全离线</span>
+      <span>Windows</span>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <h1>
+            <span class="line"><span>把鞋柜，</span></span>
+            <span class="line"><span>管成<em>一份档案</em>。</span></span>
+          </h1>
+          <p class="lede">
+            ShoeVault 是一个装在自己电脑里的鞋柜档案程序。每一双鞋的鞋名、货号、尺码、配色、购入渠道、价格和照片，都记进本地一个文件里；不上传、不注册、不联网，随时整份备份带走。
+          </p>
+          <div class="actions">
+            <a class="btn" href="#features">看看它能做什么</a>
+            <a class="btn btn-quiet" href="https://github.com/Theodore-hue/ShoeVault/releases">下载 ShoeVault <span class="arw">›</span></a>
+          </div>
+        </div>
+
+        <figure class="plinth">
+          <div class="frame" id="tilt">
+            <div class="inner">
+              <img src="assets/shot-dash.png" alt="ShoeVault 数据看板：鞋柜总数、品牌与购入渠道分布" width="1440" height="900">
+            </div>
+          </div>
+          <figcaption>
+            <span>数据看板</span>
+            <span>总数、花费、品牌与渠道分布，随录入实时更新</span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="wrap">
+        <div class="stat"><b data-count="5">5</b><span>个页面，从录入到贴盒</span></div>
+        <div class="stat"><b data-count="1">1</b><span>个 exe，双击就跑</span></div>
+        <div class="stat"><b data-count="0">0</b><span>次联网，数据只在本机</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 标本签 -->
+  <section class="sec" id="label">
+    <div class="wrap">
+      <div class="specimen">
+        <div class="tag-wrap reveal">
+          <div class="tagcard" aria-label="ShoeVault 打印标签的样式示例">
+            <div class="tag-top">
+              <b>SHOEVAULT</b>
+              <i>NO. 0004</i>
+            </div>
+            <p class="tag-name">Air Jordan 1 Retro High OG</p>
+            <p class="tag-sub">Nike · 高帮 · 男款</p>
+            <dl class="tag-fields">
+              <div><dt>尺码</dt><dd>42</dd></div>
+              <div><dt>货号</dt><dd>AR1000-104</dd></div>
+              <div><dt>配色</dt><dd><i class="sw" style="background:#161616"></i><i class="sw" style="background:#c9a227"></i></dd></div>
+              <div><dt>购入</dt><dd>2026-03-18</dd></div>
+              <div><dt>价格</dt><dd>1,299</dd></div>
+              <div><dt>状态</dt><dd>在穿</dd></div>
+            </dl>
+            <div class="tag-foot">
+              <span>鞋盒标签 · 250 × 140</span>
+              <span>2026-11-10</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="specimen-copy">
+          <div class="rule reveal"></div>
+          <h2 class="reveal">鞋盒上该有一张标签，<br>而不是一行记号笔。</h2>
+          <p class="reveal" data-d="1">
+            在「打印标签」页勾选任意几双鞋，程序会把它们排成标签纸打印出来。尺寸和字号都能调，剪下来贴到鞋盒侧面，翻箱的时候一眼就认出来。
+          </p>
+          <ul class="reveal" data-d="2">
+            <li><b>批量勾选</b>　一次排满整张纸，按鞋编号依次输出。</li>
+            <li><b>字段可选</b>　留名字和尺码也行，带上价格和购入日期也行。</li>
+            <li><b>尺寸可调</b>　标签宽高与字体大小按你的纸和盒子改。</li>
+          </ul>
+          <p class="specimen-note reveal" data-d="3">
+            标签内容跟着鞋款资料走：资料改一次，下次打印出来就是新的，不用另存模板。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 功能 -->
+  <section class="sec" id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="rule reveal"></div>
+        <h2 class="reveal">五个页面，把收藏这件事从头管到尾。</h2>
+        <p class="reveal" data-d="1">从拍照录入到打印贴盒，全部跑在本机，断网照常用。</p>
+      </div>
+
+      <div class="row">
+        <div class="row-media reveal">
+          <img src="assets/shot-intake.png" alt="收录页面：填写鞋款信息并选择照片" loading="lazy" width="1440" height="900">
+        </div>
+        <div class="row-text reveal" data-d="1">
+          <h3>收录：一次填完，图也顺便修好</h3>
+          <p>选一双鞋的照片，填鞋名、品牌、型号、尺码、配色、购入日期、渠道、价格、备注。照片可以在程序里直接裁剪、调比例，全柜的图统一成一个样子。</p>
+          <p>鞋是新的、在穿、还是已经出掉，用状态标好，鞋柜一眼分得清。</p>
+        </div>
+      </div>
+
+      <div class="row flip">
+        <div class="row-media reveal">
+          <img src="assets/shot-closet.png" alt="我的鞋柜：卡片墙展示每双鞋的照片与价格" loading="lazy" width="1440" height="900">
+        </div>
+        <div class="row-text reveal" data-d="1">
+          <h3>我的鞋柜：照片墙，也是检索台</h3>
+          <p>按品牌、状态、尺码筛，或者直接 <span class="kbd">Ctrl</span> + <span class="kbd">K</span> 搜鞋名和备注，几百双也不会翻半天。</p>
+          <p>卡片上直接看得到照片、价格和穿着状态，点开就是完整档案。</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="row-media reveal">
+          <img src="assets/shot-print.png" alt="打印标签页面：勾选鞋款并预览标签" loading="lazy" width="1440" height="900">
+        </div>
+        <div class="row-text reveal" data-d="1">
+          <h3>打印标签：给鞋盒一个正式的名字</h3>
+          <p>左侧勾选，右侧实时预览。标签上有鞋名、尺码、配色、购入信息和编号，剪下来贴盒，比记号笔体面得多。</p>
+          <p>打印尺寸与字号按你的纸张调，A4 或标签纸都能排。</p>
+        </div>
+      </div>
+
+      <div class="row flip">
+        <div class="row-media reveal">
+          <img src="assets/shot-settings.png" alt="设置页面：开机自启、托盘行为、窗口尺寸与收录默认值" loading="lazy" width="1440" height="900">
+        </div>
+        <div class="row-text reveal" data-d="1">
+          <h3>设置：它待在你电脑里的方式，你说了算</h3>
+          <p>开机自启、最小化到托盘、关闭时是否继续驻留，各自一个开关。窗口默认宽高可以按你的屏幕定，收录时的默认鞋帮高度也能预设，录入少点几下。</p>
+          <p>数据看板另有全屏轮播，投在副屏上就是一整面收藏墙。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 所有权 -->
+  <section class="ownership" id="data">
+    <div class="wrap">
+      <p class="lead reveal">你的鞋柜，数据结构上就属于你：一个文件夹，一个库文件，复制走就是完整备份。</p>
+      <dl class="files reveal" data-d="1">
+        <div>
+          <dt>shoes.db</dt>
+          <dd>所有鞋款记录与标签设置的本地数据库，单文件。</dd>
+        </div>
+        <div>
+          <dt>photos\</dt>
+          <dd>每双鞋的照片原图，按编号存放，不进任何云端。</dd>
+        </div>
+        <div>
+          <dt>backups\</dt>
+          <dd>程序自动留的备份，出问题直接还原回上一次。</dd>
+        </div>
+      </dl>
+      <p class="own-note reveal" data-d="2">
+        没有账号，没有登录，没有后台接口。断网、换机、放在移动硬盘里都能照常打开。想换台电脑，把整个 ShoeVault 文件夹复制过去就行。
+      </p>
+    </div>
+  </section>
+
+  <!-- 细节 -->
+  <section class="sec" id="details">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="rule reveal"></div>
+        <h2 class="reveal">用久了会注意到的那些小事。</h2>
+      </div>
+      <dl class="details reveal">
+        <div><dt>全局搜索</dt><dd><span class="kbd">Ctrl</span> + <span class="kbd">K</span> 唤起，鞋名、品牌、备注一起搜。</dd></div>
+        <div><dt>单实例运行</dt><dd>重复打开只会回到已经开着的窗口，不会开出两个。</dd></div>
+        <div><dt>托盘常驻</dt><dd>关窗口不退出，收进托盘，随手唤回来。</dd></div>
+        <div><dt>开机自启</dt><dd>可开可关，随时在设置里切。</dd></div>
+        <div><dt>导出数据</dt><dd>整柜数据一条 CSV 导出，Excel 直接打开算。</dd></div>
+        <div><dt>备份还原</dt><dd>自动备份加手动还原，误删也能拉回来。</dd></div>
+        <div><dt>全屏看板</dt><dd>数据看板可全屏轮播，副屏上当收藏墙。</dd></div>
+        <div><dt>主题配色</dt><dd>内置几套配色，切换后整站即时生效。</dd></div>
+        <div><dt>零依赖</dt><dd>单个 exe 直接运行，不装运行库，不联外网。</dd></div>
+        <div><dt>中文界面</dt><dd>全中文操作，标签与导出的字段也是中文。</dd></div>
+      </dl>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-line">
+      <b>ShoeVault v1.0</b><br>
+      离线鞋柜档案 · Windows 桌面程序<br>
+      数据存于本机，不联网、不上传
+    </div>
+    <div class="foot-author">
+      设计与开发<br>
+      <b>信风港</b>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var doc = document.documentElement;
+
+  /* 入场：标题揭幕 */
+  requestAnimationFrame(function(){
+    setTimeout(function(){ doc.classList.add('titled'); }, 60);
+  });
+
+  /* 滚动进度 + 顶栏状态 */
+  var bar = document.getElementById('progress');
+  var top = document.getElementById('topbar');
+  var ticking = false;
+  function onScroll(){
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function(){
+      var h = document.body.scrollHeight - window.innerHeight;
+      var p = h > 0 ? Math.min(1, window.scrollY / h) : 0;
+      bar.style.transform = 'scaleX(' + p + ')';
+      top.classList.toggle('stuck', window.scrollY > 12);
+      ticking = false;
+    });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+
+  /* 滚动显现 */
+  var targets = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)) {
+    targets.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, {threshold:.16, rootMargin:'0px 0px -8% 0px'});
+    targets.forEach(function(el){ io.observe(el); });
+  }
+
+  /* 数字滚动 */
+  function countUp(el){
+    var end = parseInt(el.getAttribute('data-count'), 10) || 0;
+    if (reduce || end === 0){ el.textContent = end; return; }
+    var start = performance.now(), dur = 1000;
+    function step(t){
+      var k = Math.min(1, (t - start) / dur);
+      var eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(end * eased);
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  var statBox = document.querySelector('.stats');
+  if (statBox && 'IntersectionObserver' in window){
+    var io2 = new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if (e.isIntersecting){
+          statBox.querySelectorAll('[data-count]').forEach(countUp);
+          io2.disconnect();
+        }
+      });
+    }, {threshold:.4});
+    io2.observe(statBox);
+  }
+
+  /* 鼠标光晕 + 截图微倾斜（仅精细指针） */
+  var fine = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  if (fine && !reduce){
+    var glow = document.getElementById('glow');
+    var frame = document.getElementById('tilt');
+    var raf = null, mx = 0, my = 0;
+    window.addEventListener('mousemove', function(e){
+      mx = e.clientX; my = e.clientY;
+      if (raf) return;
+      raf = requestAnimationFrame(function(){
+        glow.style.setProperty('--mx', mx + 'px');
+        glow.style.setProperty('--my', my + 'px');
+        glow.classList.add('on');
+        if (frame){
+          var r = frame.getBoundingClientRect();
+          var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+          var dx = Math.max(-1, Math.min(1, (mx - cx) / (r.width / 2)));
+          var dy = Math.max(-1, Math.min(1, (my - cy) / (r.height / 2)));
+          frame.style.transform = 'rotateY(' + (dx * 3.2).toFixed(2) + 'deg) rotateX(' + (-dy * 2.4).toFixed(2) + 'deg) translateZ(0)';
+        }
+        raf = null;
+      });
+    }, {passive:true});
+    window.addEventListener('mouseleave', function(){
+      glow.classList.remove('on');
+      if (frame) frame.style.transform = '';
+    });
+  }
+})();
+</script>
+</body>
+</html>
