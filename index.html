@@ -161,6 +161,10 @@
   .btn-quiet span.arw{transition:transform .35s var(--ease);color:var(--gold);}
   .btn-quiet:hover span.arw{transform:translateX(4px);}
 
+  .dl-note{
+    font-size:12.5px;line-height:1.5;color:var(--muted);letter-spacing:.02em;
+  }
+
   /* 主视觉 */
   .plinth{position:relative;margin:0;perspective:1200px;}
   .plinth .frame{
@@ -381,6 +385,12 @@
   .foot-author{font-size:13.5px;color:var(--muted);line-height:2.1;text-align:right;}
   .foot-author b{color:var(--gold);font-weight:400;font-family:var(--serif);letter-spacing:.1em;}
 
+  .foot-link{
+    color:var(--gold);text-decoration:none;border-bottom:1px solid transparent;
+    transition:border-color .3s var(--ease),color .3s var(--ease);
+  }
+  .foot-link:hover{color:var(--gold-bright);border-bottom-color:var(--gold-dim);}
+
   /* ============ 动效：入场 ============ */
   @media (prefers-reduced-motion:no-preference){
     .hero h1 .line > span{transform:translateY(115%);transition:transform 1s var(--ease);}
@@ -427,6 +437,7 @@
     .brand-name{font-size:17px;letter-spacing:.1em;}
     .actions{gap:12px;flex-direction:column;align-items:stretch;}
     .actions .btn{width:100%;justify-content:center;}
+    .actions .dl-note{text-align:center;margin-top:-2px;}
     .btn{padding:13px 20px;font-size:14.5px;}
     .sec-head h2,.specimen-copy h2{font-size:23px;}
     .hero h1{font-size:32px;}
@@ -444,7 +455,7 @@
       <span class="brand-name">SHOEVAULT</span>
     </a>
     <div class="top-meta">
-      <span>版本 <b>v1.0</b></span>
+      <span>版本 <b>v1.0.1</b></span>
       <span>完全离线</span>
       <span>Windows</span>
     </div>
@@ -467,7 +478,8 @@
           </p>
           <div class="actions">
             <a class="btn" href="#features">看看它能做什么</a>
-            <a class="btn btn-quiet" href="https://github.com/Theodore-hue/ShoeVault/releases">下载 ShoeVault <span class="arw">›</span></a>
+            <a class="btn btn-quiet" href="https://github.com/Theodore-hue/ShoeVault/releases/latest/download/ShoeVault.exe">下载 ShoeVault <span class="arw">›</span></a>
+            <span class="dl-note">点击直接下载 exe，约 20 MB</span>
           </div>
         </div>
 
@@ -645,9 +657,10 @@
 <footer>
   <div class="wrap">
     <div class="foot-line">
-      <b>ShoeVault v1.0</b><br>
+      <b>ShoeVault v1.0.1</b><br>
       离线鞋柜档案 · Windows 桌面程序<br>
-      数据存于本机，不联网、不上传
+      数据存于本机，不联网、不上传<br>
+      <a class="foot-link" href="https://github.com/Theodore-hue/ShoeVault/releases" target="_blank" rel="noopener">历次版本与更新日志 ›</a>
     </div>
     <div class="foot-author">
       设计与开发<br>
